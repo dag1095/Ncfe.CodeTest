@@ -9,5 +9,7 @@ namespace Ncfe.CodeTest
     public interface IFailoverRepository
     {
         List<FailoverEntry> GetFailOverEntries();
+        void InsertFailOverEntry(FailoverEntry failOverEntry);
+        void Save();
     }
 }

@@ -1,27 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Entity;
+using System.Linq;
 
 namespace Ncfe.CodeTest
 {
-    public class FailoverRepository
+    public class FailoverRepository : IFailoverRepository
     {
+        //todo: put in a config file
+        private readonly string _connectionString = "Data Source=:memory:;Version=3;New=True;";
+        private readonly CodeTestDbContext _context;
+
+        public FailoverRepository(CodeTestDbContext context) 
+        {
+            _context = context;
+        }
+
         public List<FailoverEntry> GetFailOverEntries()
         {
             // return entries from the past 10 minutes
-            Random random = new Random();
-            int min = 0;
-            int max = 20;
+            return _context.FailoverEntries.Where(x => x.DateTime > DateTime.Now.AddMinutes(-10)).ToList();
+        }
 
-            int amount = random.Next(min, max);
+        public void InsertFailOverEntry(FailoverEntry failOverEntry)
+        {
+            _context.FailoverEntries.Add(failOverEntry);
+            _context.SaveChanges();
+        }
 
-            var entries = new List<FailoverEntry>();
-
-            for (int i = 0; i < amount; i++)
-            {
-                entries.Add(new FailoverEntry());
-            }
-
-            return entries;
+        public void Save()
+        {
+            throw new NotImplementedException();
         }
     }
 }

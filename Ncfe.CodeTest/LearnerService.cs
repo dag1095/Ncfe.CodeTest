@@ -47,9 +47,11 @@ namespace Ncfe.CodeTest
             }
         }
 
+        private static int _failoverTimeSeconds = 600; //10 minutes
         private static int _maxFailedRequests = 100;
         private static bool? _isFailoverModeEnabled = GetFailoverMode();
-        public Learner GetLearner(int learnerId)
+        private static int _interval = _failoverTimeSeconds / _maxFailedRequests; // 10 minutes by 100 requests = 1 request every 6 seconds. Should this be lower?
+        public async Task<Learner> GetLearner(int learnerId)
         {
             // Check HasValue Here?
             if (!_isFailoverModeEnabled.HasValue)
@@ -59,27 +61,52 @@ namespace Ncfe.CodeTest
 
             LearnerResponse learnerResponse;
             Learner learner;
-            
-            // check failed entries count and failover mode                 // Or HasValue here?
-            if (failoverEntries.Count() > _maxFailedRequests && /*_isFailoverModeEnabled.HasValue &&*/ _isFailoverModeEnabled.Value)
+
+            int failCount = 0;
+
+            if (failoverEntries.Count() >= _maxFailedRequests && _isFailoverModeEnabled.Value)
             {
                 learnerResponse = FailoverLearnerDataAccess.GetLearnerById(learnerId);
             }
             else
             {
-                learnerResponse = _learnerDataAccess.LoadLearner(learnerId);
+                while (failCount < _maxFailedRequests)
+                {
+                    try
+                    {
+                        learnerResponse = _learnerDataAccess.LoadLearner(learnerId);
+                        if (learnerResponse == null)
+                        {
+                            _failoverRepository.InsertFailOverEntry(new FailoverEntry());
+                            failCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("");
+                    }
+
+                    await Task.Delay(_interval);
+                }
+
+                // check failed entries count and failover mode      // Or HasValue here?
+                if (failCount >= _maxFailedRequests && /*_isFailoverModeEnabled.HasValue &&*/ _isFailoverModeEnabled.Value)
+                {
+                    learnerResponse = FailoverLearnerDataAccess.GetLearnerById(learnerId);
+                    if (learnerResponse.IsArchived)
+                    {
+                        learner = _archivedDataService.GetArchivedLearner(learnerId);
+                    }
+                    else
+                    {
+                        learner = learnerResponse.Learner;
+                    }
+
+                    return learner;
+                }
             }
 
-            if (learnerResponse.IsArchived)
-            {
-                learner = _archivedDataService.GetArchivedLearner(learnerId);
-            }
-            else
-            {
-                learner = learnerResponse.Learner;
-            }
-
-            return learner;
+            return null;
         }
 
         public Learner GetArchivedLearner(int learnerId)

@@ -8,7 +8,7 @@ namespace Ncfe.CodeTest
 {
     public interface ILearnerService
     {
-        Learner GetLearner(int learnerId);
+        Task<Learner> GetLearner(int learnerId);
         Learner GetArchivedLearner(int learnerId);
     }
 }
